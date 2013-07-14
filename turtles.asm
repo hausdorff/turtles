@@ -1,15 +1,16 @@
-#define SPACE  #$20
-#define A      #$41
-#define Z      #$5B
-#define ZERO   #$30
-#define NINE   #$39
-#define LPAREN #$40
-#define RPAREN #$41
+;;; Bastardized use of the `cpp` utility to expand out common addresses
+#define SPACE   #$20
+#define LETTERA #$41
+#define LETTERZ #$5B
+#define ZERO    #$30
+#define NINE    #$39
+#define LPAREN  #$40
+#define RPAREN  #$41
 
-#define TNIL    0
-#define TNUMBER 1
-#define TSYMBOL 2
-#define TPAIR   3
+#define TNIL    #$00
+#define TNUMBER #$01
+#define TSYMBOL #$02
+#define TPAIR   #$03
 
 #define HEAP  $00
 #define HEAPH $01
@@ -51,8 +52,7 @@ GETCH:  LDA $C000
         RTS
 
 ;;; Print a single character to the output.
-PRINT:  EOR #$80                ; set top bit to prevent blinky text
-        JSR $FDF0               ; print it
+PRINT:  JSR $FDF0               ; print it
         RTS
 
 ;;; Write a Lisp object in readable form.
@@ -92,7 +92,7 @@ READ:
         BEQ READ
 
         ;; looking at a letter?
-        CMP A
+        CMP LETTERA
         BPL RDSYM               ; XXX check upper bound (Z)!
 
         ;; looking at a number?
@@ -114,7 +114,7 @@ RDSYM:
 RDSYML: STA (HEAP),Y            ; *heap = current char
         INY                     ; heap++
         JSR GETCH               ; read next char
-        CMP A                   ; >= A ?
+        CMP LETTERA             ; >= A ?
         BMI RDSYMS              ; last alphabetic char?
         JMP RDSYML              ; next char
 RDSYMS: LDA #$0
@@ -129,25 +129,31 @@ RDNUM:
         PHA                     ; push A
         LDA TNUMBER
         STA (HEAP),Y
-        PLA
         INY
+        PLA
+        CLC
+        SBC ZERO                ; make number from ASCII
 
-RDNUML: STA (HEAP),Y
+;;; XXX: Using uninitialized heap space! May be nonzero!
+RDNUML: STA (HEAP),Y            ; save result of *10/initial value
         JSR GETCH
         CMP ZERO
         BMI RDNUMS
-        CLC                     ; make sure carry is clear
-        SBC ZERO                ; make number
-        TAX                     ; save A
+        CMP NINE
+        BEQ RDNUMC              ; continue if == 9
+        BPL RDNUMS              ; stop if > 9
+RDNUMC: CLC                     ; make sure carry is clear
+        SBC ZERO                ; make number from ASCII
+        PHA                     ; save A
         LDA (HEAP),Y
-        ASL                     ; times two ...
-        ASL                     ; times two ...
-        ASL                     ; times two = times 8
+        ASL A                   ; times two ...
+        ASL A                   ; times two ...
+        ASL A                   ; times two = times 8
         ADC (HEAP),Y            ; plus A ...
         ADC (HEAP),Y            ; plus A = times 10 total
-        TXA
+        PLA                     ; restore A
         ADC (HEAP),Y            ; add the new number
-        STA (HEAP),Y            ; save the final result
+        JMP RDNUML
 
 RDNUMS:
         INY                     ; we actually allocated two bytes
@@ -171,3 +177,4 @@ HEAPALLOC:
         LDA HEAPH
         ADC #$00
         STA HEAPH
+        RTS
