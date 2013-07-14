@@ -1,0 +1,27 @@
+REPL:
+    JSR INTERP
+    ADC #$B0
+    STA $0400
+
+INTERP:
+    JSR READ ; GET NEXT SYMBOL
+    CMP #$20
+    JMP INTERP ; EAT SPACE
+    CMP #$28
+    BEQ PAREN
+    CMP #$2B
+    BEQ PLUS
+    BNE DIGIT
+PAREN:
+    BRK
+PLUS:
+    BRK
+DIGIT:
+    SBC #$30
+EXIT:
+    RTS
+
+;; READ A SINGLE INPUT CHARACTER
+READ:
+    LDA $C000
+    RTS
