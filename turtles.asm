@@ -19,6 +19,7 @@
 
 #define SCRATCH $04
 
+*=$800
 INIT:   LDA #$00
         STA HEAP
         STA HOOP
