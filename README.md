@@ -1,6 +1,6 @@
 # Dependencies
 
-* [cpp], the C preprocessor; we write macros to make programming in the 6502 instruction set slightly easier.
+* [cpp](http://gcc.gnu.org/onlinedocs/cpp/), the C preprocessor; we write macros to make programming in the 6502 instruction set slightly easier.
 * [xa](http://www.floodgap.com/retrotech/xa/)(aka xa65), assembler for the 6502 instruction set.
 
 # LICENSE
