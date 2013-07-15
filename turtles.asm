@@ -34,6 +34,8 @@ REPL:   JSR PROMPT
         LDA #$0A
         JSR PRINT
         JSR WRITE
+        LDA #$0C
+        JSR PRINT
         LDA #$0A
         JSR PRINT
         JMP REPL
@@ -60,7 +62,8 @@ PEEKCH: LDA $C000
         RTS
 
 ;;; Print a single character to the output.
-PRINT:  JSR $FDF0               ; print it
+PRINT:  EOR #$80                ; clear blink attribute
+        JSR $FDF0               ; print it
         RTS
 
 ;;; Write a Lisp object in readable form.
