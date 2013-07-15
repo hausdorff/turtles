@@ -9,7 +9,7 @@ Now the interesting part.
 Hook up your Apple II e to the audio jack. Type `0800..08D2R` (or whatever the last address of your program is) and run `make send`. You should see something like the following:
 
 ```
-± make send                                                          ▸▸▸▸▸▸▸▸▸▸
+$ make send
 Length: 351
 Load at: 0800..095e
 Press enter when ready...
@@ -24,9 +24,9 @@ Replaygain: off
 In:0.00% 00:00:00.00 [00:00:00.00] Out:0     [      |      ]        Clip:0
 ```
 
-Just press enter.
+Just press enter. It will transmit the signal.
 
-This should drop you into the prompt, or will drop you into the prompt after we're done writing the interpreter.
+This should drop you into the prompt, on your Apple 2 e, or it will drop you into the prompt after we're done writing the interpreter.
 
 
 # Dependencies
