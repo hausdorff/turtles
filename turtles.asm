@@ -31,13 +31,9 @@ INIT:   LDA #$00
 ;;; Read-Eval-Print Loop
 REPL:   JSR PROMPT
         JSR READ
-        LDA #$0A
-        JSR PRINT
+        JSR NL
         JSR WRITE
-        LDA #$0C
-        JSR PRINT
-        LDA #$0A
-        JSR PRINT
+        JSR NL
         JMP REPL
 
 ;;; Print prompt ("> ")
@@ -63,6 +59,12 @@ PEEKCH: LDA $C000
 ;;; Print a single character to the output.
 PRINT:  EOR #$80                ; clear blink attribute
         JSR $FDF0               ; print it
+        RTS
+
+NL:     LDA #$8D
+        JSR $FDF0
+        LDA $8A
+        JSR $FDF0
         RTS
 
 ;;; Write a Lisp object in readable form.
