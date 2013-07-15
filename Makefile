@@ -6,3 +6,6 @@ clean:
 compile:
 	@cpp turtles.asm | sed -E 's/(;.*)|(^#.*)//' | awk /./{print} > turtles_expanded.asm
 	@xa turtles_expanded.asm -o turtles.o65
+
+send: compile
+	@./transport turtles.o65 | sox -b 32 -r 44100 -L -c 1 -t raw -e signed-integer - -d
