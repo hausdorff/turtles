@@ -50,7 +50,6 @@ PROMPT: LDA #$3E
 ;;; Read a single character of input.
 GETCH:  LDA $C000
         BPL GETCH               ; bad character; try again
-        EOR #$80                ; clear top bit to get the ASCII code
         JSR PRINT               ; echo to console
         STA $C010               ; acknowledge the read
         RTS
