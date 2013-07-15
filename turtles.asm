@@ -46,9 +46,14 @@ PROMPT: LDA #$3E
 ;;; Read a single character of input.
 GETCH:  LDA $C000
         BPL GETCH               ; bad character; try again
-        JSR PRINT               ; echo to console
+        EOR #$80
         STA $C010               ; acknowledge the read
-        RTS
+        CMP SPACE
+        BMI GETCHE
+        PHA
+        JSR PRINT
+        PLA
+GETCHE: RTS
 
 ;;; Peek ahead one character.
 PEEKCH: LDA $C000
@@ -153,6 +158,7 @@ READ:
         JSR GETCH               ; read next char
         CMP SPACE
         BEQ READ
+        BMI READ
 
         ;; looking at a list?
         ;; CMP LPAREN
