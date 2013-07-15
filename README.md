@@ -24,7 +24,7 @@ Replaygain: off
 In:0.00% 00:00:00.00 [00:00:00.00] Out:0     [      |      ]        Clip:0
 ```
 
-Just press enter. It will transmit the signal.
+Don't worry about any of that stuff, just press enter. It will transmit the signal.
 
 This should drop you into the prompt, on your Apple 2 e, or it will drop you into the prompt after we're done writing the interpreter.
 
