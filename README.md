@@ -6,7 +6,7 @@ Next you want to make sure to grab all the other (public, widely-available) sour
 
 Now the interesting part.
 
-Hook up your Apple II e to the audio jack. Type `0800..08D2R` (or whatever the last address of your program is) and run `make send`. You should see something like the following:
+Hook up your Apple II e to the audio jack. Type `0800..08D2R` (or whatever the last address of your program is) into your Apple IIe's Monitor program, and run `make send` on your home computer. You should see something like the following:
 
 ```
 $ make send
