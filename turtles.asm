@@ -1,11 +1,10 @@
-;;; Bastardized use of the `cpp` utility to expand out common addresses
 #define SPACE   #$20
 #define LETTERA #$41
 #define LETTERZ #$5B
 #define ZERO    #$30
 #define NINE    #$39
-#define LPAREN  #$40
-#define RPAREN  #$41
+#define LPAREN  #$28
+#define RPAREN  #$29
 
 #define TNIL    #$00
 #define TNUMBER #$01
@@ -34,6 +33,8 @@ REPL:   JSR PROMPT
         LDA #$0A
         JSR PRINT
         JSR WRITE
+        LDA #$0A
+        JSR PRINT
         JMP REPL
 
 ;;; Print prompt ("> ")
@@ -51,6 +52,12 @@ GETCH:  LDA $C000
         STA $C010               ; acknowledge the read
         RTS
 
+;;; Peek ahead one character.
+PEEKCH: LDA $C000
+        BPL PEEKCH
+        EOR #$80
+        RTS
+
 ;;; Print a single character to the output.
 PRINT:  JSR $FDF0               ; print it
         RTS
@@ -64,8 +71,11 @@ WRITE:  STX HOOPH               ; jump through hoops...
         BEQ WRSYM
         CMP TNUMBER
         BEQ WRNUM
-        ;; XXX: more types
-        ;; just fail for now
+        CMP TPAIR
+        BEQ WRPAIR
+        CMP TNIL
+        BEQ WRNIL
+        ;; We'll get here if no type matched.
         BRK
 
 WRSYM:  LDA (HOOP),Y            ; load next char
@@ -77,7 +87,55 @@ WRSYM:  LDA (HOOP),Y            ; load next char
         JMP WRITEND
 
 WRNUM:  LDA (HOOP),Y            ; load value
-        JSR PRINT               ; just print as a byte for now
+	LDX #$0A                ; divisor = 10
+        JSR WRNUMR
+        JMP WRITEND
+WRNUMR: CMP #$0
+        BEQ WRNUME
+        JSR DIVMOD              ; remainder => A; quotient => Y
+        PHA
+        TYA
+        JSR WRNUMR
+        PLA
+        CLC                     ; no carry
+        ADC ZERO                ; make digit
+        JSR PRINT
+WRNUME: RTS
+
+WRPAIR: LDA LPAREN
+        JSR PRINT               ; print '('
+        LDA (HOOP),Y            ; load CDR's X
+        INY
+        PHA                     ; store CDR's X
+        LDA (HOOP),Y            ; load CDR's Y
+        INY
+        PHA                     ; store CDR's Y
+        LDA (HOOP),Y            ; load CAR's X
+        INY
+        TAX
+        LDA (HOOP),Y            ; load CAR's Y
+        TAY
+        JSR WRITE               ; write CAR
+        LDA #$20
+        JSR PRINT
+        LDA #$2E
+        JSR PRINT
+        LDA #$20
+        JSR PRINT
+        PLA                     ; restore CDR's Y
+        TAY
+        PLA                     ; restore CDR's X
+        TAX
+        JSR WRITE               ; write CDR
+        LDA RPAREN
+        JSR PRINT               ; print ')'
+        JMP WRITEND
+
+;;; Just print ()
+WRNIL:  LDA LPAREN
+        JSR PRINT
+        LDA RPAREN
+        JSR PRINT
         JMP WRITEND
 
 WRITEND:
@@ -91,6 +149,10 @@ READ:
         CMP SPACE
         BEQ READ
 
+        ;; looking at a list?
+        ;; CMP LPAREN
+        ;; BEQ RDLST
+        
         ;; looking at a letter?
         CMP LETTERA
         BPL RDSYM               ; XXX check upper bound (Z)!
@@ -101,6 +163,49 @@ READ:
 
         ;; XXX handle error (nothing matched)
         BRK
+
+;; RDLST:  JSR PEEKCH              ; look one char ahead
+;;         CMP RPAREN              ; A = ')' ?
+;;         BNE RDLSTC              ; no end of list; continue
+;;         JMP GETCH               ; eat ')'
+;;         LDY #$00
+;;         LDA TNIL
+;;         STA (HEAP),Y
+;;         INY
+;;         JSR HEAPALLOC
+;;         JMP READEND
+
+;; RDLSTC: JSR READ                ; read CAR
+;;         TXA
+;;         PHA                     ; save CAR's X ...
+;;         TYA
+;;         PHA                     ; ... and CAR's Y
+;;         JSR READ                ; read CDR
+;;         TXA
+;;         PHA                     ; save CDR's X ...
+;;         TYA
+;;         PHA                     ; ... and CDR's Y
+;;         LDY #$00
+;;         LDA TPAIR
+;;         STA (HEAP),Y
+;;         INY                     ; heap++
+;;         PLA                     ; pop CDR's Y
+;;         TAX
+;;         PLA                     ; pop CDR's X
+;;         STA (HEAP),Y            ; store CDR's X
+;;         INY                     ; heap++
+;;         TXA
+;;         STA (HEAP),Y            ; store CDR's Y
+;;         INY                     ; heap++
+;;         PLA                     ; pop CAR's Y
+;;         TAX
+;;         PLA                     ; pop CAR's X
+;;         STA (HEAP),Y            ; store CAR's X
+;;         INY                     ; heap++
+;;         TXA
+;;         STA (HEAP),Y            ; store CAR's Y
+;;         INY                     ; heap++
+;;         JSR HEAPALLOC           ; reserve heap space
 
 RDSYM:
         ;; XXX this block is a duplicate of the block in RDNUM!
@@ -131,7 +236,7 @@ RDNUM:
         STA (HEAP),Y
         INY
         PLA
-        CLC
+        SEC
         SBC ZERO                ; make number from ASCII
 
 ;;; XXX: Using uninitialized heap space! May be nonzero!
@@ -142,16 +247,17 @@ RDNUML: STA (HEAP),Y            ; save result of *10/initial value
         CMP NINE
         BEQ RDNUMC              ; continue if == 9
         BPL RDNUMS              ; stop if > 9
-RDNUMC: CLC                     ; make sure carry is clear
+RDNUMC: SEC                     ; make sure carry is clear
         SBC ZERO                ; make number from ASCII
-        PHA                     ; save A
+        PHA                     ; save the current digit
         LDA (HEAP),Y
         ASL A                   ; times two ...
         ASL A                   ; times two ...
         ASL A                   ; times two = times 8
         ADC (HEAP),Y            ; plus A ...
         ADC (HEAP),Y            ; plus A = times 10 total
-        PLA                     ; restore A
+        STA (HEAP),Y            ; store the result
+        PLA                     ; restore the saved digit
         ADC (HEAP),Y            ; add the new number
         JMP RDNUML
 
@@ -177,4 +283,21 @@ HEAPALLOC:
         LDA HEAPH
         ADC #$00
         STA HEAPH
+        RTS
+
+;;; Divide A by X, saving remainder in A and quotient in Y.
+DIVMOD:
+        LDY #$00
+DIVLOOP:
+        CMP #$00
+        BMI DIVDONE
+        STX SCRATCH             ; divisor => memory
+        SEC                     ; no borrow
+        SBC SCRATCH             ; subtract X
+        INY                     ; quotient++
+        JMP DIVLOOP
+DIVDONE:
+        CLC                     ; no carry
+        ADC SCRATCH             ; get remainder
+        DEY                     ; adjust quotient
         RTS
