@@ -6,7 +6,7 @@ Next you want to make sure to grab all the other (public, widely-available) sour
 
 Now the interesting part.
 
-Hook up your Apple II e to the audio jack. Type `0800..08D2R` (or whatever the last address of your program is) into your Apple IIe's Monitor program, and run `make send` on your home computer. You should see something like the following:
+Hook up your Apple II e to the audio jack. Run `make send` on your home computer. You should see something like the following:
 
 ```
 $ make send
@@ -24,9 +24,21 @@ Replaygain: off
 In:0.00% 00:00:00.00 [00:00:00.00] Out:0     [      |      ]        Clip:0
 ```
 
-Don't worry about any of that stuff, just press enter. It will transmit the signal.
+This program is waiting for you to press return to send the message. Don't press return yet.
 
-This should drop you into the prompt, on your Apple 2 e, or it will drop you into the prompt after we're done writing the interpreter.
+The second line says `Load at: $x..$y`, where `$x` and `$y` are hex addresses. Now go to your Apple IIe and open the monitor program. Usually this is `call -151`, but it might depend on your system. (We're on ProDOS.) The Monitor prompt like this:
+
+`*`
+
+Type `$x..$yR` into your Apple IIe's Monitor prompt. This will tell the Apple IIe to load from the audio port.
+
+It will wait until it receives an answer.
+
+Now press enter on your home machine to transmit the data.
+
+You might have to run `make run` and press enter again---I'm not sure why it does this, but transmitting the package again should work.
+
+This should drop you into the prompt.
 
 
 # Dependencies
