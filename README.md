@@ -36,7 +36,7 @@ It will wait until it receives an answer.
 
 Now press enter on your home machine to transmit the data.
 
-You might have to run `make run` and press enter again---I'm not sure why it does this, but transmitting the package again should work.
+You might have to run `make send` and press enter again---I'm not sure why it does this, but transmitting the package again should work.
 
 This should drop you into the prompt.
 
