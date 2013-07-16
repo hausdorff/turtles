@@ -31,6 +31,7 @@ MAIN:   JSR PROMPT
         JSR CHRS
         JMP MONITOR             ; end program, go to monitor
 
+;;; process a stream of characters from stdin
 CHRS:   LDA $C000
         BPL CHRS                ; bad character; try again
         EOR #$80                ; required for char comparison
@@ -43,7 +44,7 @@ CHRSNE: JSR PROCCH              ; else proc char
         JMP CHRS                ; and repeat
 
 ;;; process a single line
-PROCL:  JSR PRTNL
+PROCL:  JSR PRTCR
         LDA #$21                ; print exclamation mark
         JSR PRTCH
         RTS
@@ -52,8 +53,9 @@ PROCL:  JSR PRTNL
 PROCCH: JSR PRTCH
         RTS
 
-;;; prints newline
-PRTNL:  LDA NEWL
+;;; prints carriage return
+PRTCR:  LDA CR
+        JSR PRTCH
         RTS
 
 ;;; prints char
