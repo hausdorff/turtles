@@ -1,4 +1,11 @@
+#define MONITOR $FF69
+#define NEWL    #$0A
+#define CR      #$0D
 #define SPACE   #$20
+
+
+
+
 #define LETTERA #$41
 #define LETTERZ #$5B
 #define ZERO    #$30
@@ -20,6 +27,46 @@
 #define SCRATCH $04
 
 *=$800
+MAIN:   JSR PROMPT
+        JSR CHRS
+        JMP MONITOR             ; end program, go to monitor
+
+CHRS:   LDA $C000
+        BPL CHRS                ; bad character; try again
+        EOR #$80                ; required for char comparison
+        STA $C010               ; acknowledge the read
+        CMP CR
+        BNE CHRSNE
+        JSR PROCL               ; proc line if char is \r
+        RTS                     ; and return
+CHRSNE: JSR PROCCH              ; else proc char
+        JMP CHRS                ; and repeat
+
+;;; process a single line
+PROCL:  JSR PRTNL
+        LDA #$21                ; print exclamation mark
+        JSR PRTCH
+        RTS
+
+;;; process a single char
+PROCCH: JSR PRTCH
+        RTS
+
+;;; prints newline
+PRTNL:  LDA NEWL
+        RTS
+
+;;; prints char
+PRTCH:  EOR #$80
+        JSR $FDF0               ; print it
+        RTS
+
+
+
+
+
+
+
 INIT:   LDA #$00
         STA HEAP
         STA HOOP
