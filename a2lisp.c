@@ -5,44 +5,25 @@
 #include <string.h>
 #include <assert.h>
 
-#define LISP_NIL     ((void*)1)
-#define LISP_NILP(v) ((void*)v == LISP_NIL)
+#define LISP_NIL     ((Prim*)1)
+#define LISP_NILP(v) ((Prim*)v == LISP_NIL)
 
-void *lstack[255];
-unsigned lsp = 0;
-
-void lpush(void *v)
-{
-    lstack[lsp++] = v;
-}
-
-void *lpop()
-{
-    return lstack[--lsp];
-}
-
-void lpopn(int n)
-{
-    for (; n > 0; n--)
-        lpop();
-}
-
-typedef struct pair {
-    void *car;
-    void *cdr;
-} Pair;
 
 typedef struct prim {
     uint8_t type;
     union {
         int int_;
         char sym[0];
-        void* (*fn)(void*);
+        struct prim* (*fn)(struct prim*);
         struct {
-            void *args;
-            void *body;
-            void *env;
+            struct prim *args;
+            struct prim *body;
+            struct prim *env;
         } lambda;
+        struct {
+          struct prim *car;
+          struct prim *cdr;
+        } pair;
     };
 } Prim;
 
@@ -54,27 +35,26 @@ typedef enum type {
     T_LAMBDA
 } Type;
 
-char *pair_heap; // grows down
-char *prim_heap; // grows up
+char *heap; // grows up
+char *heap_end;
 
-Pair *syms[255];
+Prim *syms[255];
 
 // Symbols for primitives. Initialized in init().
-void *quote_sym = NULL, *lambda_sym = NULL, *define_sym = NULL;
+Prim *quote_sym = NULL, *lambda_sym = NULL, *define_sym = NULL;
 
 // Global environment.
-Pair *global_env;
+Prim *global_env;
 
-void *mksym(const char *);
-void *mkpair(void *, void *);
+Prim *mksym(const char *);
+Prim *mkpair(Prim *, Prim *);
 void init()
 {
     size_t s = 16384;
-    char *heap = malloc(s);
-    pair_heap = heap + s - sizeof(Pair);
-    prim_heap = heap;
+    heap = malloc(s);
+    heap_end = heap + s;
 
-    for (int i = 0; i < sizeof(syms)/sizeof(Pair*); i++) {
+    for (int i = 0; i < sizeof(syms)/sizeof(Prim*); i++) {
         syms[i] = LISP_NIL;
     }
 
@@ -97,80 +77,79 @@ void gc()
 
 void maybe_gc(size_t nalloc)
 {
-    if (prim_heap + nalloc >= pair_heap) {
+    if (heap + nalloc >= heap_end) {
         gc();
     }
 }
 
-void *mkpair(void *car, void *cdr)
+Prim *mkpair(Prim *car, Prim *cdr)
 {
     const size_t nalloc = sizeof(Prim);
-    lpush(car); lpush(cdr);
     maybe_gc(nalloc);
-    lpopn(2);
-    Pair *p = (Pair *) pair_heap;
-    p->car = car;
-    p->cdr = cdr;
-    pair_heap -= nalloc;
-    return (void *)p;
+    Prim *p = (Prim *) heap;
+    p->type = T_PAIR;
+    p->pair.car = car;
+    p->pair.cdr = cdr;
+    heap += nalloc;
+    return p;
 }
 
-void *mkint(int v)
+Prim *mkint(int v)
 {
     const size_t nalloc = sizeof(Prim);
     maybe_gc(nalloc);
-    Prim *p = (Prim *) prim_heap;
+    Prim *p = (Prim *) heap;
     p->type = T_INT;
     p->int_ = v;
-    prim_heap += nalloc;
-    return (void *)p;
+    heap += nalloc;
+    return p;
 }
 
-void *mknative(void* (*fn)(void *))
+Prim *mknative(Prim* (*fn)(Prim *))
 {
     const size_t nalloc = sizeof(Prim);
     maybe_gc(nalloc);
-    Prim *p = (Prim *) prim_heap;
+    Prim *p = (Prim *) heap;
     p->type = T_NATIVE;
     p->fn = fn;
-    prim_heap += nalloc;
-    return (void *)p;
+    heap += nalloc;
+    return p;
 }
 
-void *mklambda(void *args, void *body, void *env)
+Prim *mklambda(Prim *args, Prim *body, Prim *env)
 {
     const size_t nalloc = sizeof(Prim);
     maybe_gc(nalloc);
-    Prim *p = (Prim *) prim_heap;
+    Prim *p = (Prim *) heap;
     p->type = T_LAMBDA;
     p->lambda.args = args;
     p->lambda.body = body;
     p->lambda.env = env;
-    prim_heap += nalloc;
-    return (void *)p;
+    heap += nalloc;
+    return p;
 }
 
 uint8_t gethash(const char *);
-void *mksym(const char *sym)
+Prim *mksym(const char *sym)
 {
     uint8_t hash = gethash(sym);
     size_t length = strlen(sym);
 
-    Pair *pair = syms[hash];
-    for (; !LISP_NILP(pair); pair = (Pair *)pair->cdr) {
-        Prim *prim = (Prim *)pair->car;
+    Prim *pair = syms[hash];
+    for (; !LISP_NILP(pair); pair = pair->pair.cdr) {
+        Prim *prim = pair->pair.car;
         if (strcmp(prim->sym, sym) == 0) {
-            return (void *) prim;
+            return prim;
         }
     }
 
     const size_t nalloc = sizeof(Prim) + length + 1;
     maybe_gc(nalloc);
-    Prim *prim = (Prim *) prim_heap;
+    Prim *prim = (Prim *) heap;
     prim->type = T_SYM;
     strcpy(prim->sym, sym);
-    prim_heap += nalloc;
-    syms[hash] = mkpair((void *)prim, (void *)syms[hash]);
+    heap += nalloc;
+    syms[hash] = mkpair(prim, syms[hash]);
     return prim;
 }
 
@@ -185,23 +164,19 @@ uint8_t gethash(const char *sym)
     return hash;
 }
 
-Type gettype(void *ptr)
+Type gettype(Prim *ptr)
 {
-    if ((char *) ptr >= pair_heap) {
-        return T_PAIR;
-    } else {
-        Prim *p = (Prim *) ptr;
-        return p->type;
-    }
+    return ptr->type;
 }
 
 char peekchar()
 {
     char ch = getchar();
     ungetc(ch, stdin);
+    return ch;
 }
 
-void *lreadsym()
+Prim *lreadsym()
 {
     char buf[32];
     char *p = buf;
@@ -214,7 +189,7 @@ void *lreadsym()
     return mksym(buf);
 }
 
-void *lreadint()
+Prim *lreadint()
 {
     int v = 0;
     char ch;
@@ -225,19 +200,19 @@ void *lreadint()
     return mkint(v);
 }
 
-void *lread();
-void *lreadlist()
+Prim *lread();
+Prim *lreadlist()
 {
     if (peekchar() == ')') {
         getchar(); // eat )
         return LISP_NIL;
     }
-    void *car = lread();
-    void *cdr = lreadlist();
+    Prim *car = lread();
+    Prim *cdr = lreadlist();
     return mkpair(car, cdr);
 }
 
-void *lread()
+Prim *lread()
 {
     char ch;
  again:
@@ -254,40 +229,39 @@ void *lread()
     }
 }
 
-void lwriteint(void *ptr)
+void lwriteint(Prim *ptr)
 {
-    printf("%d", ((Prim *)ptr)->int_);
+    printf("%d", ptr->int_);
 }
 
-void lwritesym(void *ptr)
+void lwritesym(Prim *ptr)
 {
-    printf("%s", ((Prim *)ptr)->sym);
+    printf("%s", ptr->sym);
 }
 
-void lwritenative(void *ptr)
+void lwritenative(Prim *ptr)
 {
     printf("#<NATIVE>");
 }
 
-void lwritelambda(void *ptr)
+void lwritelambda(Prim *ptr)
 {
     printf("#<LAMBDA>");
 }
 
-void lwrite(void *);
-void lwritepair(void *ptr)
+void lwrite(Prim *);
+void lwritepair(Prim *pair)
 {
-    Pair *pair = (Pair *) ptr;
     printf("(");
-    for (; !LISP_NILP(pair); pair = (Pair *) pair->cdr) {
-        lwrite(pair->car);
-        if (!LISP_NILP(pair->cdr)) {
-            if (gettype(pair->cdr) == T_PAIR) {
+    for (; !LISP_NILP(pair); pair = pair->pair.cdr) {
+        lwrite(pair->pair.car);
+        if (!LISP_NILP(pair->pair.cdr)) {
+            if (gettype(pair->pair.cdr) == T_PAIR) {
                 printf(" ");
             } else {
                 // Handle improper lists
                 printf(" . ");
-                lwrite(pair->cdr);
+                lwrite(pair->pair.cdr);
                 break;
             }
         }
@@ -295,7 +269,7 @@ void lwritepair(void *ptr)
     printf(")");
 }
 
-void lwrite(void *ptr)
+void lwrite(Prim *ptr)
 {
     if (ptr == LISP_NIL) {
         printf("NIL");
@@ -311,47 +285,46 @@ void lwrite(void *ptr)
     }
 }
 
-void *eval(void *, Pair *);
-Pair *mapeval(Pair *list, Pair *env)
+Prim *eval(Prim *, Prim *);
+Prim *mapeval(Prim *list, Prim *env)
 {
     if (list == LISP_NIL)
         return LISP_NIL;
-    return mkpair(eval(list->car, env), mapeval((Pair *)list->cdr, env));
+    return mkpair(eval(list->pair.car, env), mapeval(list->pair.cdr, env));
 }
 
-Pair *bind(Prim *name, void *value, Pair *env)
+Prim *bind(Prim *name, Prim *value, Prim *env)
 {
-    Pair *binding = (Pair *)mkpair(name, value);
-    return (Pair *)mkpair(binding, env);
+    Prim *binding = mkpair(name, value);
+    return mkpair(binding, env);
 }
 
-void *lookup(Prim *name, Pair *env)
+Prim *lookup(Prim *name, Prim *env)
 {
     assert(gettype(name) == T_SYM);
-    for (; !LISP_NILP(env); env = (Pair *)env->cdr) {
+    for (; !LISP_NILP(env); env = env->pair.cdr) {
         // Pointer comparison is OK for interned symbols.
-        Pair *binding = (Pair *)env->car;
-        if (binding->car == name)
-            return binding->cdr;
+        Prim *binding = env->pair.car;
+        if (binding->pair.car == name)
+            return binding->pair.cdr;
     }
     return NULL;
 }
 
-void *apply(void *proc, void *args)
+Prim *apply(Prim *proc, Prim *args)
 {
     switch (gettype(proc)) {
     case T_NATIVE:
         return ((Prim *)proc)->fn(args);
     case T_LAMBDA:
         {
-            Prim *lambda = (Prim *)proc;
-            Pair *call_env = lambda->lambda.env;
-            Pair *formal = lambda->lambda.args;
-            Pair *actual = args;
+            Prim *call_env = proc->lambda.env;
+            Prim *formal = proc->lambda.args;
+            Prim *actual = args;
             while (!LISP_NILP(formal) && !LISP_NILP(actual)) {
-                call_env = bind(formal->car, actual->car, call_env);
-                formal = (Pair *) formal->cdr;
-                actual = (Pair *) actual->cdr;
+                call_env = bind(formal->pair.car, actual->pair.car, call_env);
+                formal = formal->pair.cdr;
+                actual = actual->pair.cdr;
             }
 
             // Argument count mismatch?
@@ -360,7 +333,7 @@ void *apply(void *proc, void *args)
                 exit(1);
             }
 
-            return eval(lambda->lambda.body, call_env);
+            return eval(proc->lambda.body, call_env);
         } break;
     default:
         printf("*** Type is not callable.\n");
@@ -368,14 +341,14 @@ void *apply(void *proc, void *args)
     }
 }
 
-void defglobal(Prim *, void *);
-void *eval(void *form, Pair *env)
+void defglobal(Prim *, Prim *);
+Prim *eval(Prim *form, Prim *env)
 {
     switch (gettype(form)) {
     case T_INT: return form;
     case T_SYM:
         {
-            void *value = lookup(form, env);
+            Prim *value = lookup(form, env);
             if (value == NULL) {
                 printf("*** %s is undefined.\n", ((Prim *)form)->sym);
                 exit(1);
@@ -384,19 +357,18 @@ void *eval(void *form, Pair *env)
         } break;
     case T_PAIR:
         {
-            Pair *p = (Pair *) form;
-            void *verb = p->car;
-            Pair *args = (Pair *)p->cdr;
+            Prim *verb = form->pair.car;
+            Prim *args = form->pair.cdr;
 
             if (verb == quote_sym) {
-                return args->car;
+                return args->pair.car;
             } else if (verb == lambda_sym) {
-                void *args = ((Pair *)p->cdr)->car;
-                void *body = ((Pair *)((Pair *)p->cdr)->cdr)->car;
+                Prim *args = form->pair.cdr->pair.car;
+                Prim *body = form->pair.cdr->pair.cdr->pair.car;
                 return mklambda(args, body, env);
             } else if (verb == define_sym) {
-                void *name = ((Pair *)args->car);
-                void *value = eval(((Pair *)args->cdr)->car, env);
+                Prim *name = args->pair.car;
+                Prim *value = eval(args->pair.cdr->pair.car, env);
                 defglobal(name, value);
                 return name;
             } else {
@@ -406,36 +378,36 @@ void *eval(void *form, Pair *env)
     }
 }
 
-void defglobal(Prim *name, void *value)
+void defglobal(Prim *name, Prim *value)
 {
-    global_env->cdr = bind(name, value, global_env->cdr);    
+    global_env->pair.cdr = bind(name, value, global_env->pair.cdr);    
 }
 
-void defnative(Prim *name, void* (*fn)(void *))
+void defnative(Prim *name, Prim* (*fn)(Prim *))
 {
     defglobal(name, mknative(fn));
 }
 
-void *native_cons(void *args)
+Prim *native_cons(Prim *args)
 {
-    void *car = ((Pair *)args)->car;
-    void *cdr = ((Pair *)((Pair *)args)->cdr)->car;
+    Prim *car = args->pair.car;
+    Prim *cdr = args->pair.cdr->pair.car;
     return mkpair(car, cdr);
 }
 
-void *native_car(void *args)
+Prim *native_car(Prim *args)
 {
-    return ((Pair *)((Pair *)args)->car)->car;
+    return args->pair.car->pair.car;
 }
 
-void *native_cdr(void *args)
+Prim *native_cdr(Prim *args)
 {
-    return ((Pair *)((Pair *)args)->car)->cdr;
+    return args->pair.car->pair.cdr;
 }
 
-void *native_eval(void *args)
+Prim *native_eval(Prim *args)
 {
-    return eval(((Pair *)args)->car, global_env);
+    return eval(args->pair.car, global_env);
 }
 
 int main()
@@ -448,7 +420,7 @@ int main()
     defnative(mksym("EVAL"), native_eval);
     while (!feof(stdin)) {
         printf("> ");
-        void *ptr = eval(lread(), global_env);
+        Prim *ptr = eval(lread(), global_env);
         lwrite(ptr);
         printf("\n");
     }
