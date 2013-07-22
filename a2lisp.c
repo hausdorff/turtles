@@ -235,9 +235,12 @@ Value *lread()
 
     ungetc(ch, stdin);
     if (isalpha(ch)) return lreadsym();
-    if (isdigit(ch)) return lreadint();
-    if (ch == '(') { getchar(); return lreadlist(); }
-    else {
+    else if (isdigit(ch)) return lreadint();
+    else if (ch == '(') { getchar(); return lreadlist(); }
+    else if (ch == '\'')  {
+        getchar();
+        return mkpair(quote_sym, mkpair(lread(), LISP_NIL));
+    } else {
         printf("*** Unrecognized token '%c'.\n", ch);
         exit(1);
     }
