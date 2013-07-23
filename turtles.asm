@@ -53,7 +53,7 @@
 ;;; Procedure calls shall not clobber the X and Y registers. The A register is
 ;;; used for the return value and is thus not preserved across calls. It is
 ;;; always the callee's responsibility to preserve X and Y. The special
-;;; RET location on the ZP is used to return 16-bit results.
+;;; PTR location on the ZP is used to return 16-bit results.
 ;;;
 ;;; Parameters are passed on the software stack in reverse order.
 ;;; The callee is responsible for popping arguments of the stack,
@@ -73,7 +73,7 @@
 
 SSP  = $00 ;; Software stack pointer (two locations)
 HEAP = $02 ;; Heap pointer (two locations)
-RET  = $04 ;; 16-bit return "register" (two locations)
+PTR  = $04 ;; 16-bit return "register" (two locations)
 
 * = $0800
 
@@ -243,9 +243,9 @@ S_POP_PTR:
 S_INC_SP:
     LDA SSP
     CLC
-    ADC #2          ; NOTE could optimize with 2xINC
+    ADC #2           ; NOTE could optimize with 2xINC
     STA SSP
-    BCC S_INC_SP_TMP ; If ZF is set then low byte addition wrapped
+    BCC S_INC_SP_END ; If ZF is set then low byte addition wrapped
     INC SSP+1
 S_INC_SP_END:
     RTS
@@ -255,9 +255,9 @@ S_INC_SP_END:
 S_DEC_SP:
     LDA SSP
     SEC
-    SBC #2          ; NOTE could optimize with 2xDEC
+    SBC #2           ; NOTE could optimize with 2xDEC
     STA SSP
-    BCS S_DEC_SP_TMP ; If NF is set, low byte subtraction wrapped
+    BCS S_DEC_SP_END ; If NF is set, low byte subtraction wrapped
     DEC SSP+1
 S_DEC_SP_END:
     RTS
