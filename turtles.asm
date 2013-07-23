@@ -121,16 +121,22 @@ S_POP_A:
 ;; S_INC_SP() -> NONE
 ;; Increments the software stack pointer by two.
 S_INC_SP:
-                INC SSP
-                BNE S_INC_SP_TMP ; If ZF is set then low byte addition wrapped
+                LDA SSP
+                CLC
+                ADC #2          ; NOTE could optimize with 2xINC
+                STA SSP
+                BCC S_INC_SP_TMP ; If ZF is set then low byte addition wrapped
                 INC SSP+1
 S_INC_SP_TMP    RTS
 
 ;; S_DEC_SP() -> NONE
 ;; Decrements the software stack pointer two.
 S_DEC_SP:
-                DEC SSP
-                BMI S_DEC_SP_TMP ; If NF is set, low byte subtraction wrapped
+                LDA SSP
+                SEC
+                SBC #2          ; NOTE could optimize with 2xDEC
+                STA SSP
+                BCC S_DEC_SP_TMP ; If NF is set, low byte subtraction wrapped
                 DEC SSP+1
 S_DEC_SP_TMP    RTS
 
