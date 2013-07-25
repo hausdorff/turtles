@@ -4,6 +4,7 @@
 #include <stdint.h>
 #include <string.h>
 #include <assert.h>
+#include <setjmp.h>
 
 #define LISP_NIL     ((Value*)1)
 #define LISP_NILP(v) ((Value*)v == LISP_NIL)
@@ -60,6 +61,15 @@ Value *quote_sym = NULL, *lambda_sym = NULL, *define_sym = NULL;
 
 // Global environment.
 Value *global_env;
+
+// Jump buffer for escaping a failing eval back to the top level.
+jmp_buf toplevel_escape;
+
+void error(const char *what)
+{
+    printf("*** %s\n", what);
+    longjmp(toplevel_escape, 0);
+}
 
 Value *mksym(const char *);
 Value *mkpair(Value *, Value *);
@@ -257,7 +267,8 @@ Value *lread()
         getchar();
         return mkpair(quote_sym, mkpair(lread(), LISP_NIL));
     } else {
-        printf("*** Unrecognized token '%c'.\n", ch);
+        getchar();
+        error("Unrecognized token.");
         exit(1);
     }
 }
@@ -362,14 +373,14 @@ Value *apply(Value *proc, Value *args)
 
             // Argument count mismatch?
             if (formal != actual) {
-                printf("*** Argument count mismatch.\n");
+                error("Argument count mismatch.\n");
                 exit(1);
             }
 
             return eval(proc->lambda.body, call_env);
         } break;
     default:
-        printf("*** Type is not callable.\n");
+        error("Type is not callable.");
         exit(1);
     }
 }
@@ -383,7 +394,7 @@ Value *eval(Value *form, Value *env)
         {
             Value *value = lookup(form, env);
             if (value == NULL) {
-                printf("*** %s is undefined.\n", ((Value *)form)->sym);
+                error("Undefined symbol.");
                 exit(1);
             }
             return value;
@@ -455,6 +466,7 @@ int main()
     defnative(mksym("EVAL"), native_eval);
 
     while (!feof(stdin)) {
+        setjmp(toplevel_escape);
         printf("> ");
         result = eval(lread(), global_env);
         printf("\n");
