@@ -27,7 +27,7 @@ typedef struct value {
     uint8_t type;
     union {
         int int_;
-        char sym[0];
+        char sym[1];
         struct value* (*fn)(struct value*);
         struct {
             struct value *args;
@@ -52,7 +52,8 @@ typedef enum type {
 char *heap; // grows up
 char *heap_end;
 
-Value *syms[255];
+#define SYMBOL_TABLE_SIZE 255
+Value *syms[SYMBOL_TABLE_SIZE];
 
 // Symbols for primitives. Initialized in init().
 Value *quote_sym = NULL, *lambda_sym = NULL, *define_sym = NULL;
@@ -64,11 +65,13 @@ Value *mksym(const char *);
 Value *mkpair(Value *, Value *);
 void init()
 {
+    int i;
     size_t s = 16384;
+
     heap = malloc(s);
     heap_end = heap + s;
 
-    for (int i = 0; i < sizeof(syms)/sizeof(Value*); i++) {
+    for (i = 0; i < SYMBOL_TABLE_SIZE; i++) {
         syms[i] = LISP_NIL;
     }
 
@@ -98,9 +101,11 @@ void maybe_gc(size_t nalloc)
 
 Value *mkpair(Value *car, Value *cdr)
 {
+    Value *p;
     const size_t nalloc = sizeof(Value);
+
     maybe_gc(nalloc);
-    Value *p = (Value *) heap;
+    p = (Value *) heap;
     p->type = T_PAIR;
     p->pair.car = car;
     p->pair.cdr = cdr;
@@ -110,9 +115,11 @@ Value *mkpair(Value *car, Value *cdr)
 
 Value *mkint(int v)
 {
+    Value *p;
     const size_t nalloc = sizeof(Value);
+
     maybe_gc(nalloc);
-    Value *p = (Value *) heap;
+    p = (Value *) heap;
     p->type = T_INT;
     p->int_ = v;
     heap += nalloc;
@@ -121,9 +128,11 @@ Value *mkint(int v)
 
 Value *mknative(Value* (*fn)(Value *))
 {
+    Value *p;
     const size_t nalloc = sizeof(Value);
+
     maybe_gc(nalloc);
-    Value *p = (Value *) heap;
+    p = (Value *) heap;
     p->type = T_NATIVE;
     p->fn = fn;
     heap += nalloc;
@@ -132,9 +141,11 @@ Value *mknative(Value* (*fn)(Value *))
 
 Value *mklambda(Value *args, Value *body, Value *env)
 {
+    Value *p;
     const size_t nalloc = sizeof(Value);
+
     maybe_gc(nalloc);
-    Value *p = (Value *) heap;
+    p = (Value *) heap;
     p->type = T_LAMBDA;
     p->lambda.args = args;
     p->lambda.body = body;
@@ -147,9 +158,11 @@ uint8_t gethash(const char *);
 Value *mksym(const char *sym)
 {
     uint8_t hash = gethash(sym);
-    size_t length = strlen(sym);
+    const size_t length = strlen(sym);
+    const size_t nalloc = sizeof(Value) + length + 1;
+    Value *pair, *prim;
 
-    Value *pair = syms[hash];
+    pair = syms[hash];
     for (; !LISP_NILP(pair); pair = CDR(pair)) {
         Value *prim = CAR(pair);
         if (strcasecmp(prim->sym, sym) == 0) {
@@ -157,9 +170,8 @@ Value *mksym(const char *sym)
         }
     }
 
-    const size_t nalloc = sizeof(Value) + length + 1;
     maybe_gc(nalloc);
-    Value *prim = (Value *) heap;
+    prim = (Value *) heap;
     prim->type = T_SYM;
     strcpy(prim->sym, sym);
     heap += nalloc;
@@ -170,8 +182,10 @@ Value *mksym(const char *sym)
 uint8_t gethash(const char *sym)
 {
     uint8_t hash = 0;
-    size_t len = strlen(sym);
-    for (size_t i = 0; i < len; i++) {
+    const size_t length = strlen(sym);
+    size_t i;
+
+    for (i = 0; i < length; i++) {
         hash ^= tolower(sym[i]);
     }
     // XXX: Alex says this blows. I think he's optimizing prematurely.
@@ -217,12 +231,14 @@ Value *lreadint()
 Value *lread();
 Value *lreadlist()
 {
+    Value *car, *cdr;
+
     if (peekchar() == ')') {
         getchar(); // eat )
         return LISP_NIL;
     }
-    Value *car = lread();
-    Value *cdr = lreadlist();
+    car = lread();
+    cdr = lreadlist();
     return mkpair(car, cdr);
 }
 
@@ -429,16 +445,22 @@ Value *native_eval(Value *args)
 
 int main()
 {
+    Value *result;
+
     init();
     defglobal(mksym("NIL"), LISP_NIL);
     defnative(mksym("CONS"), native_cons);
     defnative(mksym("CAR"), native_car);
     defnative(mksym("CDR"), native_cdr);
     defnative(mksym("EVAL"), native_eval);
+
     while (!feof(stdin)) {
         printf("> ");
-        Value *ptr = eval(lread(), global_env);
-        lwrite(ptr);
+        result = eval(lread(), global_env);
+        printf("\n");
+        lwrite(result);
         printf("\n");
     }
+
+    return 0;
 }
