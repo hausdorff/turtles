@@ -57,7 +57,10 @@ char *heap_end;
 Value *syms[SYMBOL_TABLE_SIZE];
 
 // Symbols for primitives. Initialized in init().
-Value *quote_sym = NULL, *lambda_sym = NULL, *define_sym = NULL;
+Value *quote_sym = NULL,
+      *lambda_sym = NULL,
+      *define_sym = NULL,
+      *if_sym = NULL;
 
 // Global environment.
 Value *global_env;
@@ -88,6 +91,7 @@ void init()
     quote_sym = mksym("QUOTE");
     lambda_sym = mksym("LAMBDA");
     define_sym = mksym("DEFINE");
+    if_sym = mksym("IF");
 
     // Set up the global environment as a single, "empty" binding.
     // This is done so that we can "splice" global definitions into
@@ -410,6 +414,12 @@ Value *eval(Value *form, Value *env)
                 Value *lambda_args = CADR(form);
                 Value *lambda_body = CADDR(form);
                 return mklambda(lambda_args, lambda_body, env);
+            } else if (verb == if_sym) {
+                if (!LISP_NILP(eval(CAR(args), env))) {
+                    return eval(CADR(args), env);
+                } else {
+                    return eval(CADDR(args), env);
+                }
             } else if (verb == define_sym) {
                 Value *name = CAR(args);
                 Value *value = eval(CADR(args), env);
@@ -454,6 +464,16 @@ Value *native_eval(Value *args)
     return eval(CAR(args), global_env);
 }
 
+Value *native_plus(Value *args)
+{
+    return mkint(CAR(args)->int_ + CADR(args)->int_);
+}
+
+Value *native_minus(Value *args)
+{
+    return mkint(CAR(args)->int_ - CADR(args)->int_);
+}
+
 int main()
 {
     Value *result;
@@ -464,6 +484,8 @@ int main()
     defnative(mksym("CAR"), native_car);
     defnative(mksym("CDR"), native_cdr);
     defnative(mksym("EVAL"), native_eval);
+    defnative(mksym("PLUS"), native_plus);
+    defnative(mksym("MINUS"), native_minus);
 
     while (!feof(stdin)) {
         setjmp(toplevel_escape);
