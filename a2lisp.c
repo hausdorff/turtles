@@ -459,50 +459,41 @@ void defnative(Value *name, Value* (*fn)(Value *))
     defglobal(name, mknative(fn));
 }
 
-Value *native_cons(Value *args)
-{
-    Value *car = CAR(args);
-    Value *cdr = CADR(args);
-    return mkpair(car, cdr);
-}
+// List manipulation.
+Value *native_cons(Value *args) { return mkpair(CAR(args), CADR(args)); }
+Value *native_car(Value *args)  { return CAAR(args); }
+Value *native_cdr(Value *args)  { return CDAR(args); }
 
-Value *native_car(Value *args)
-{
-    return CAAR(args);
-}
+// Arithmetic.
+#define ARITH(op) mkint(CAR(args)->int_ op CADR(args)->int_)
+Value *native_plus(Value *args)  { return ARITH(+); }
+Value *native_minus(Value *args) { return ARITH(-); }
+Value *native_mul(Value *args)   { return ARITH(*); }
+Value *native_div(Value *args)   { return ARITH(/); }
+#undef ARITH
 
-Value *native_cdr(Value *args)
-{
-    return CDAR(args);
-}
-
-Value *native_eval(Value *args)
-{
-    return eval(CAR(args), global_env);
-}
-
-Value *native_plus(Value *args)
-{
-    return mkint(CAR(args)->int_ + CADR(args)->int_);
-}
-
-Value *native_minus(Value *args)
-{
-    return mkint(CAR(args)->int_ - CADR(args)->int_);
-}
+// Miscellaneous.
+Value *native_eval(Value *args) { return eval(CAR(args), global_env); }
 
 int main()
 {
     Value *result;
 
     init();
-    defglobal(mksym("NIL"), LISP_NIL);
+    // List manipulation.
     defnative(mksym("CONS"), native_cons);
     defnative(mksym("CAR"), native_car);
     defnative(mksym("CDR"), native_cdr);
-    defnative(mksym("EVAL"), native_eval);
+
+    // Arithmetic.
     defnative(mksym("PLUS"), native_plus);
     defnative(mksym("MINUS"), native_minus);
+    defnative(mksym("MUL"), native_mul);
+    defnative(mksym("DIV"), native_div);
+
+    // Miscellaneous.
+    defnative(mksym("EVAL"), native_eval);
+    defglobal(mksym("NIL"), LISP_NIL);
 
     while (!feof(stdin)) {
         setjmp(toplevel_escape);
