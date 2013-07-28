@@ -42,6 +42,112 @@ You might have to run `make send` and press enter again---I'm not sure why it do
 
 This should drop you into the prompt.
 
+# Examples
+Below we provide some examples of what you can do with the current prototype.
+
+## Atoms and primitives
+Numbers evaluate to themselves:
+
+    > 42
+    42
+
+Basic arithmetic is provided by the built-in primitives `PLUS`, `MINUS`,
+`MUL` and `DIV`:
+
+    > (PLUS 5 5)
+    10
+    > (MUL 11 10)
+    110
+    > (PLUS 5 (MUL 10 10))
+    105
+
+Lists are constructed using the `CONS` primitive. To extract the first element
+of a list, apply `CAR` to it. To extract the remainder (tail) of the list,
+apply `CDR`. The emtpy list is known as `'()` or `NIL`.
+
+    > (CONS 1 NIL)
+    (1)
+    > (CAR (CONS 1 (CONS 2 NIL)))
+    1
+    > (CDR (CONS 1 (CONS 2 NIL)))
+    (2)
+
+## Quotation
+Any datum can be "quoted", meaning it is taken literally and returned
+unevaluated:
+
+    > (QUOTE 1)
+    1
+    > (QUOTE (1 2 3))
+    (1 2 3)
+
+The shorthand `'` can be used for the same effect:
+
+    > '(1 2 3)
+    (1 2 3)
+
+## Conditionals
+The `IF` form provides conditional tests. Everything that is not `NIL`
+is true:
+
+    > (IF 'FOO 'YES 'NO)
+    YES
+    > (IF CONS 'YES 'NO)
+    YES
+    > (IF '() 'YES 'NO)
+    NO
+
+## Lambdas
+The `LAMBDA` form can be used to construct an anonymous function.
+Turtles is lexically scoped, meaning that names bind to their lexically
+"closest" definition:
+
+    > (LAMBDA () 'FOO)
+    #<LAMBDA>
+    > ((LAMBDA (X) (PLUS X X)) 10)
+    20
+
+We have full support for closures, meaning that variables in a surrounding
+scope are "captured" by the `LAMBDA` form. For example, in this case `X`
+is captured by the inner lambda.
+
+    > (((LAMBDA (X) (LAMBDA (Y) (PLUS X Y))) 5) 10)
+    15
+
+## Global definitions
+Global names can be bound to values using the `DEFINE` form:
+
+    > (DEFINE X 42)
+    > X
+    42
+
+Global functions are easily defined by combining `DEFINE` with `LAMBDA`:
+
+    > (DEFINE F (LAMBDA (X Y) (PLUS X Y)))
+    > (F 2 3)
+    5
+
+## Basic recursion
+We can easily define a recursive function to count the elements of a list:
+
+    > (DEFINE LENGTH (LAMBDA (L)
+                       (IF L
+                         (PLUS 1 (LENGTH (CDR L)))
+                         0)))
+
+## Higher order programming
+The forms we have explored so far are sufficient to define some common
+higher order programming tools, such as `MAP`:
+
+    > (DEFINE MAP (LAMBDA (F L)
+                    (IF L
+                      (CONS (F (CAR L)) (MAP F (CDR L)))
+                      '())))
+
+We can use this in conjunction with `LAMBDA` to square the elements of a list:
+
+    > (MAP (LAMBDA (X) (MUL X X)) '(1 2 3)
+    (1 4 9)
 
 # Dependencies
 
