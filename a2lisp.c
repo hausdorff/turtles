@@ -22,7 +22,7 @@
 #define CDAAR(v) ((v)->pair.car->pair.car->pair.cdr)
 #define CDADR(v) ((v)->pair.cdr->pair.car->pair.cdr)
 #define CDDAR(v) ((v)->pair.car->pair.cdr->pair.cdr)
-#define CDDDR(v) ((v)->Pair.cdr->pair.cdr->pair.cdr)
+#define CDDDR(v) ((v)->pair.cdr->pair.cdr->pair.cdr)
 
 typedef struct value {
     uint8_t type;
@@ -390,6 +390,30 @@ Value *apply(Value *proc, Value *args)
 }
 
 void defglobal(Value *, Value *);
+Value *eval_define(Value *form, Value *env)
+{
+    Value *name = CADR(form);
+    Value *value = eval(CADDR(form), env);
+    defglobal(name, value);
+    return name;
+}
+
+Value *eval_lambda(Value *form, Value *env)
+{
+    Value *lambda_args = CADR(form);
+    Value *lambda_body = CADDR(form);
+    return mklambda(lambda_args, lambda_body, env);
+}
+
+Value *eval_if(Value *form, Value *env)
+{
+    if (!LISP_NILP(eval(CADR(form), env))) {
+        return eval(CADDR(form), env);
+    } else {
+        return eval(CAR(CDDDR(form)), env);
+    }
+}
+
 Value *eval(Value *form, Value *env)
 {
     switch (gettype(form)) {
@@ -406,29 +430,22 @@ Value *eval(Value *form, Value *env)
     case T_PAIR:
         {
             Value *verb = CAR(form);
-            Value *args = CDR(form);
 
             if (verb == quote_sym) {
-                return CAR(args);
+                return CADR(form);
             } else if (verb == lambda_sym) {
-                Value *lambda_args = CADR(form);
-                Value *lambda_body = CADDR(form);
-                return mklambda(lambda_args, lambda_body, env);
+                return eval_lambda(form, env);
             } else if (verb == if_sym) {
-                if (!LISP_NILP(eval(CAR(args), env))) {
-                    return eval(CADR(args), env);
-                } else {
-                    return eval(CADDR(args), env);
-                }
+                return eval_if(form, env);
             } else if (verb == define_sym) {
-                Value *name = CAR(args);
-                Value *value = eval(CADR(args), env);
-                defglobal(name, value);
-                return name;
+                return eval_define(form, env);
             } else {
-                return apply(eval(verb, env), mapeval(args, env));
+                return apply(eval(verb, env), mapeval(CDR(form), env));
             }
         } break;
+    default:
+        error("I don't know how to evaluate that.");
+        break;
     }
 }
 
