@@ -1,6 +1,6 @@
 # Building and running
 
-The first thing you need to do is build and compile [apple2e-audio-transport](https://github.com/hausdorff/apple2e-audio-transport), which will allow you to transport the interpreter over the wire to the Apple IIe. It's a matter of running `make compile` and dumping the binary (which is called `transport` at this point) into the directory of this project.
+The first thing you need to do is build and compile [apple2e-audio-transport](https://github.com/hausdorff/apple2e-audio-transport) (itself largely derived from a core part of [ADTPro](http://adtpro.cvs.sourceforge.net/)), which will allow you to transport the interpreter over the wire to the Apple IIe. It's a matter of running `make compile` and dumping the binary (which is called `transport` at this point) into the directory of this project.
 
 Next you want to make sure to grab all the other (public, widely-available) source dependencies below.
 
