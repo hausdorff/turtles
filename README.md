@@ -8,9 +8,7 @@ Now the interesting part.
 
 > **TEMPORARY NOTE:** We have developed a full prototype in C. The file is `a2lisp.c`, and you can compile and send this across the wire. The eventual target is 6502 assembly, which we are in the process of porting now.
 
-Here is a live demo:
-
-<iframe width="560" height="315" src="//www.youtube.com/embed/tey9sFqICSk" frameborder="0" allowfullscreen></iframe>
+[Here](http://www.youtube.com/watch?v=tey9sFqICSk) is a YouTube demo (GitHub doesn't let you embed videos in readmes).
 
 Hook up your Apple II e to the audio jack. Run `make send` on your home computer. You should see something like the following:
 
